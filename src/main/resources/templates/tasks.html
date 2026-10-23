@@ -47,6 +47,14 @@
             background: #dcfce7;
             color: #166534;
         }
+        .category-badge {
+            display: inline-block;
+            padding: 0.05rem 0.45rem;
+            border-radius: 0.75rem;
+            background: #ede9fe;
+            color: #5b21b6;
+            font-size: 0.85em;
+        }
         .done-indicator {
             color: #166534;
             font-weight: bold;
@@ -124,7 +132,7 @@
 <form id="new-task" method="post" action="/tasks">
     <p>
         <label for="title">Title</label>
-        <input id="title" type="text" name="title" required maxlength="200" th:value="${title}">
+        <input id="title" type="text" name="title" required maxlength="80" th:value="${title}">
     </p>
     <p>
         <label for="description">Description (optional)</label>
@@ -142,10 +150,20 @@
             <option value="Low" th:selected="${priority == 'Low'}">Low</option>
         </select>
     </p>
+    <p>
+        <label for="category">Category</label>
+        <select id="category" name="category" required>
+            <option value="" disabled th:selected="${category == null or category == ''}">Select a category</option>
+            <option th:each="categoryOption : ${categories}"
+                    th:value="${categoryOption}"
+                    th:text="${categoryOption}"
+                    th:selected="${category == categoryOption}"></option>
+        </select>
+    </p>
     <fieldset>
         <legend>Subtasks (optional)</legend>
         <div id="subtasks">
-            <p><input type="text" name="subtasks" maxlength="200" placeholder="Subtask title"></p>
+            <p><input type="text" name="subtasks" maxlength="80" placeholder="Subtask title"></p>
         </div>
         <button type="button" onclick="addSubtask()">Add another subtask</button>
     </fieldset>
@@ -177,6 +195,7 @@
               th:text="${task.status}"></span>
         <span class="priority-badge" th:classappend="'priority-' + ${#strings.toLowerCase(task.priority)}"
               th:text="${task.priority}"></span>
+        <span class="category-badge" th:text="${task.category}"></span>
         <span th:text="'Due: ' + ${task.dueDate}"></span>
         <span th:if="${task.completed}" class="done-indicator">&#10003; Complete</span>
         <span th:if="${task.description != null}" th:text="'— ' + ${task.description}"></span>
@@ -200,6 +219,7 @@
                       th:text="${subtask.status}"></span>
                 <span class="priority-badge" th:classappend="'priority-' + ${#strings.toLowerCase(subtask.priority)}"
                       th:text="${subtask.priority}"></span>
+                <span class="category-badge" th:text="${subtask.category}"></span>
                 <span th:text="'Due: ' + ${subtask.dueDate}"></span>
                 <span th:if="${subtask.completed}" class="done-indicator">&#10003; Complete</span>
                 <form method="post" th:action="@{/tasks/{id}/delete(id=${subtask.id})}" style="display: inline;">
@@ -221,7 +241,7 @@
         var input = document.createElement('input');
         input.type = 'text';
         input.name = 'subtasks';
-        input.maxLength = 200;
+        input.maxLength = 80;
         input.placeholder = 'Subtask title';
         row.appendChild(input);
         container.appendChild(row);

@@ -59,6 +59,7 @@ public class TaskController {
                          @RequestParam(required = false) String description,
                          @RequestParam(required = false) String dueDate,
                          @RequestParam(required = false) String priority,
+                         @RequestParam(required = false) String category,
                          @RequestParam(required = false) List<String> subtasks,
                          HttpServletRequest request,
                          Model model) {
@@ -66,7 +67,12 @@ public class TaskController {
         String trimmedTitle = title == null ? "" : title.trim();
 
         if (trimmedTitle.isEmpty()) {
-            return renderError(user, model, "Title is required.", title, description, dueDate, priority);
+            return renderError(user, model, "Title is required.", title, description, dueDate, priority, category);
+        }
+
+        if (trimmedTitle.length() > 80) {
+            return renderError(user, model, "Title must be 80 characters or fewer.",
+                    title, description, dueDate, priority, category);
         }
 
         LocalDate parsedDueDate;
@@ -76,7 +82,12 @@ public class TaskController {
             }
             parsedDueDate = LocalDate.parse(dueDate.trim());
         } catch (DateTimeParseException ex) {
-            return renderError(user, model, "Due date is required.", title, description, dueDate, priority);
+            return renderError(user, model, "Due date is required.", title, description, dueDate, priority, category);
+        }
+
+        String normalizedCategory = normalizeCategory(category);
+        if (normalizedCategory == null) {
+            return renderError(user, model, "Category is required.", title, description, dueDate, priority, category);
         }
 
         String normalizedPriority = normalizePriority(priority);
@@ -84,13 +95,13 @@ public class TaskController {
                 ? null : description.trim();
 
         Task task = taskRepository.save(user.getId(), null, trimmedTitle, trimmedDescription,
-                parsedDueDate, normalizedPriority);
+                parsedDueDate, normalizedPriority, normalizedCategory);
 
         if (subtasks != null) {
             for (String subtaskTitle : subtasks) {
                 if (subtaskTitle != null && !subtaskTitle.trim().isEmpty()) {
                     taskRepository.save(user.getId(), task.getId(), subtaskTitle.trim(), null,
-                            parsedDueDate, normalizedPriority);
+                            parsedDueDate, normalizedPriority, normalizedCategory);
                 }
             }
         }
@@ -156,7 +167,7 @@ public class TaskController {
     }
 
     private String renderError(User user, Model model, String error, String title,
-                               String description, String dueDate, String priority) {
+                               String description, String dueDate, String priority, String category) {
         model.addAttribute("email", user.getEmail());
         model.addAttribute("tab", "active");
         model.addAttribute("error", error);
@@ -164,6 +175,7 @@ public class TaskController {
         model.addAttribute("description", description);
         model.addAttribute("dueDate", dueDate);
         model.addAttribute("priority", priority);
+        model.addAttribute("category", category);
         addTasks(user, model);
         return "tasks";
     }
@@ -200,6 +212,7 @@ public class TaskController {
         model.addAttribute("activeCount", activeCount);
         model.addAttribute("completeCount", completeCount);
         model.addAttribute("statuses", Task.statuses());
+        model.addAttribute("categories", Task.categories());
     }
 
     private String normalizeStatus(String status) {
@@ -231,6 +244,23 @@ public class TaskController {
             return Task.PRIORITY_LOW;
         }
         return Task.DEFAULT_PRIORITY;
+    }
+
+    private String normalizeCategory(String category) {
+        if (category == null) {
+            return null;
+        }
+        String trimmed = category.trim();
+        if (Task.CATEGORY_WORK.equalsIgnoreCase(trimmed)) {
+            return Task.CATEGORY_WORK;
+        }
+        if (Task.CATEGORY_PERSONAL.equalsIgnoreCase(trimmed)) {
+            return Task.CATEGORY_PERSONAL;
+        }
+        if (Task.CATEGORY_OTHER.equalsIgnoreCase(trimmed)) {
+            return Task.CATEGORY_OTHER;
+        }
+        return null;
     }
 
     private User currentUser(HttpServletRequest request) {

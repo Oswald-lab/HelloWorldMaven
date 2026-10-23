@@ -18,9 +18,9 @@ public class TaskRepository {
     private final Map<Long, Task> tasks = new ConcurrentHashMap<>();
 
     public Task save(Long userId, Long parentId, String title, String description,
-                     LocalDate dueDate, String priority) {
+                     LocalDate dueDate, String priority, String category) {
         Long id = ids.incrementAndGet();
-        Task task = new Task(id, userId, parentId, title, description, dueDate, priority);
+        Task task = new Task(id, userId, parentId, title, description, dueDate, priority, category);
         tasks.put(id, task);
         return task;
     }
