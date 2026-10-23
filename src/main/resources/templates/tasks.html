@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>My tasks</title>
+</head>
+<body>
+<h1>My tasks</h1>
+<p>
+    Signed in as <strong th:text="${email}"></strong>
+    <form method="post" action="/logout" style="display: inline;">
+        <button type="submit">Sign out</button>
+    </form>
+</p>
+<form method="post" action="/tasks">
+    <label for="title">New task</label>
+    <input id="title" type="text" name="title" required maxlength="200">
+    <button type="submit">Add</button>
+</form>
+<ul>
+    <li th:each="task : ${tasks}">
+        <form method="post" th:action="@{/tasks/{id}/toggle(id=${task.id})}" style="display: inline;">
+            <button type="submit">
+                <span th:text="${task.completed} ? 'Undo' : 'Complete'"></span>
+            </button>
+        </form>
+        <span th:text="${task.title}"
+              th:style="${task.completed} ? 'text-decoration: line-through;' : ''"></span>
+        <form method="post" th:action="@{/tasks/{id}/delete(id=${task.id})}" style="display: inline;">
+            <button type="submit">Delete</button>
+        </form>
+    </li>
+</ul>
+<p th:if="${#lists.isEmpty(tasks)}">You have no tasks yet.</p>
+</body>
+</html>
