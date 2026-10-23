@@ -12,6 +12,8 @@ public class AuthService {
 
     private static final Pattern EMAIL_PATTERN =
             Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
+    private static final Pattern SPECIAL_CHARACTER_PATTERN =
+            Pattern.compile(".*[^A-Za-z0-9].*");
     private static final int MIN_PASSWORD_LENGTH = 8;
 
     private final UserRepository userRepository;
@@ -50,6 +52,9 @@ public class AuthService {
         }
         if (password == null || password.length() < MIN_PASSWORD_LENGTH) {
             throw new IllegalArgumentException("Password must be at least " + MIN_PASSWORD_LENGTH + " characters.");
+        }
+        if (!SPECIAL_CHARACTER_PATTERN.matcher(password).matches()) {
+            throw new IllegalArgumentException("Password must contain at least one special character.");
         }
     }
 

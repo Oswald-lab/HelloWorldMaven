@@ -11,7 +11,9 @@
     <label for="email">Email</label>
     <input id="email" type="email" name="email" th:value="${email}" required autocomplete="email">
     <label for="password">Password</label>
-    <input id="password" type="password" name="password" minlength="8" required autocomplete="new-password">
+    <input id="password" type="password" name="password" minlength="8" required autocomplete="new-password"
+           title="At least 8 characters, including one special character.">
+    <small>At least 8 characters, including one special character.</small>
     <button type="submit">Sign up</button>
 </form>
 <p>Already have an account? <a href="/login">Sign in</a></p>
