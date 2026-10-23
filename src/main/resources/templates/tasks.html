@@ -20,13 +20,76 @@
             background: #e5e7eb;
             font-size: 0.85em;
         }
-        .task-list li.completed .status-badge {
+        .status-badge.status-complete {
             background: #bbf7d0;
+            color: #166534;
+        }
+        .status-badge.status-processing {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+        .priority-badge {
+            display: inline-block;
+            padding: 0.05rem 0.45rem;
+            border-radius: 0.75rem;
+            background: #f3f4f6;
+            font-size: 0.85em;
+        }
+        .priority-badge.priority-high {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+        .priority-badge.priority-medium {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        .priority-badge.priority-low {
+            background: #dcfce7;
             color: #166534;
         }
         .done-indicator {
             color: #166534;
             font-weight: bold;
+        }
+        .tabs {
+            display: flex;
+            gap: 0.5rem;
+            margin: 1rem 0;
+        }
+        .tabs a {
+            padding: 0.35rem 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            text-decoration: none;
+            color: #374151;
+        }
+        .tabs a.active {
+            background: #1d4ed8;
+            border-color: #1d4ed8;
+            color: #ffffff;
+        }
+        .bulk-actions {
+            margin-bottom: 0.5rem;
+        }
+        .empty-state {
+            padding: 1rem 0;
+            color: #6b7280;
+        }
+        .toast {
+            position: fixed;
+            right: 1rem;
+            bottom: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem;
+            background: #111827;
+            color: #ffffff;
+            border-radius: 0.5rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+        }
+        .toast button {
+            cursor: pointer;
         }
     </style>
 </head>
@@ -41,7 +104,24 @@
 
 <p th:if="${error}" th:text="${error}" style="color: red;"></p>
 
-<form method="post" action="/tasks">
+<div class="toast" id="status-toast" th:if="${undoId != null}">
+    <span th:text="'Status changed to ' + ${updatedStatus} + '.'"></span>
+    <form method="post" th:action="@{/tasks/{id}/status/undo(id=${undoId})}" style="display: inline;">
+        <input type="hidden" name="status" th:value="${undoStatus}">
+        <button type="submit">Undo</button>
+    </form>
+</div>
+
+<form id="bulkForm" method="post" action="/tasks/bulk-status"></form>
+
+<nav class="tabs">
+    <a th:href="@{/tasks}" th:classappend="${tab == 'active'} ? 'active' : ''"
+       th:text="'Todo (' + ${activeCount} + ')'"></a>
+    <a th:href="@{/tasks(tab='complete')}" th:classappend="${tab == 'complete'} ? 'active' : ''"
+       th:text="'Complete (' + ${completeCount} + ')'"></a>
+</nav>
+
+<form id="new-task" method="post" action="/tasks">
     <p>
         <label for="title">Title</label>
         <input id="title" type="text" name="title" required maxlength="200" th:value="${title}">
@@ -74,8 +154,15 @@
     </p>
 </form>
 
+<div class="bulk-actions">
+    <span>With selected:</span>
+    <button type="submit" form="bulkForm" name="status" value="Complete">Mark Complete</button>
+    <button type="submit" form="bulkForm" name="status" value="Processing">Mark Processing</button>
+</div>
+
 <ul class="task-list">
     <li th:each="task : ${tasks}" th:classappend="${task.completed} ? 'completed' : ''">
+        <input type="checkbox" name="ids" form="bulkForm" th:value="${task.id}">
         <form method="post" th:action="@{/tasks/{id}/status(id=${task.id})}" style="display: inline;">
             <select name="status" onchange="this.form.submit()">
                 <option th:each="status : ${statuses}"
@@ -86,16 +173,19 @@
             </select>
         </form>
         <span class="task-title" th:text="${task.title}"></span>
-        <span class="status-badge" th:text="${task.status}"></span>
-        <span th:if="${task.completed}" class="done-indicator">&#10003; Done</span>
-        <span th:text="'Priority: ' + ${task.priority}"></span>
+        <span class="status-badge" th:classappend="'status-' + ${#strings.toLowerCase(task.status)}"
+              th:text="${task.status}"></span>
+        <span class="priority-badge" th:classappend="'priority-' + ${#strings.toLowerCase(task.priority)}"
+              th:text="${task.priority}"></span>
         <span th:text="'Due: ' + ${task.dueDate}"></span>
+        <span th:if="${task.completed}" class="done-indicator">&#10003; Complete</span>
         <span th:if="${task.description != null}" th:text="'— ' + ${task.description}"></span>
         <form method="post" th:action="@{/tasks/{id}/delete(id=${task.id})}" style="display: inline;">
             <button type="submit">Delete</button>
         </form>
         <ul th:if="${!#lists.isEmpty(task.subtasks)}">
             <li th:each="subtask : ${task.subtasks}" th:classappend="${subtask.completed} ? 'completed' : ''">
+                <input type="checkbox" name="ids" form="bulkForm" th:value="${subtask.id}">
                 <form method="post" th:action="@{/tasks/{id}/status(id=${subtask.id})}" style="display: inline;">
                     <select name="status" onchange="this.form.submit()">
                         <option th:each="status : ${statuses}"
@@ -106,8 +196,12 @@
                     </select>
                 </form>
                 <span class="task-title" th:text="${subtask.title}"></span>
-                <span class="status-badge" th:text="${subtask.status}"></span>
-                <span th:if="${subtask.completed}" class="done-indicator">&#10003; Done</span>
+                <span class="status-badge" th:classappend="'status-' + ${#strings.toLowerCase(subtask.status)}"
+                      th:text="${subtask.status}"></span>
+                <span class="priority-badge" th:classappend="'priority-' + ${#strings.toLowerCase(subtask.priority)}"
+                      th:text="${subtask.priority}"></span>
+                <span th:text="'Due: ' + ${subtask.dueDate}"></span>
+                <span th:if="${subtask.completed}" class="done-indicator">&#10003; Complete</span>
                 <form method="post" th:action="@{/tasks/{id}/delete(id=${subtask.id})}" style="display: inline;">
                     <button type="submit">Delete</button>
                 </form>
@@ -115,7 +209,10 @@
         </ul>
     </li>
 </ul>
-<p th:if="${#lists.isEmpty(tasks)}">You have no tasks yet.</p>
+<p th:if="${#lists.isEmpty(tasks)}" class="empty-state">
+    <span th:text="${tab == 'complete'} ? 'No completed tasks yet.' : 'You have no active tasks yet.'"></span>
+    <a th:if="${tab != 'complete'}" href="#new-task">Create your first task</a>
+</p>
 
 <script>
     function addSubtask() {
@@ -129,6 +226,15 @@
         row.appendChild(input);
         container.appendChild(row);
     }
+
+    (function () {
+        var toast = document.getElementById('status-toast');
+        if (toast) {
+            window.setTimeout(function () {
+                toast.style.display = 'none';
+            }, 5000);
+        }
+    })();
 </script>
 </body>
 </html>

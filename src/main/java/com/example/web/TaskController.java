@@ -3,7 +3,9 @@ package com.example.web;
 import java.time.LocalDate;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -16,6 +18,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
+import org.springframework.web.servlet.mvc.support.RedirectAttributes;
 
 import com.example.task.Task;
 import com.example.task.TaskRepository;
@@ -34,10 +37,20 @@ public class TaskController {
     }
 
     @GetMapping("/tasks")
-    public String list(HttpServletRequest request, Model model) {
+    public String list(@RequestParam(required = false) String tab,
+                       @RequestParam(required = false) Long undoId,
+                       @RequestParam(required = false) String undoStatus,
+                       @RequestParam(required = false) String updatedStatus,
+                       HttpServletRequest request,
+                       Model model) {
         User user = currentUser(request);
+        boolean completeTab = "complete".equalsIgnoreCase(tab);
         model.addAttribute("email", user.getEmail());
-        addTasks(user, model);
+        model.addAttribute("tab", completeTab ? "complete" : "active");
+        model.addAttribute("undoId", undoId);
+        model.addAttribute("undoStatus", undoStatus);
+        model.addAttribute("updatedStatus", updatedStatus);
+        addTasks(user, model, completeTab);
         return "tasks";
     }
 
@@ -88,13 +101,47 @@ public class TaskController {
     @PostMapping("/tasks/{id}/status")
     public String updateStatus(@PathVariable Long id,
                                @RequestParam(required = false) String status,
-                               HttpServletRequest request) {
+                               HttpServletRequest request,
+                               RedirectAttributes redirectAttributes) {
         User user = currentUser(request);
         Task task = taskRepository.findByIdAndUserId(id, user.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         String normalizedStatus = normalizeStatus(status);
         if (normalizedStatus != null && task.canTransitionTo(normalizedStatus)) {
+            String previousStatus = task.getStatus();
             task.setStatus(normalizedStatus);
+            redirectAttributes.addAttribute("undoId", id);
+            redirectAttributes.addAttribute("undoStatus", previousStatus);
+            redirectAttributes.addAttribute("updatedStatus", normalizedStatus);
+        }
+        return "redirect:/tasks";
+    }
+
+    @PostMapping("/tasks/{id}/status/undo")
+    public String undoStatus(@PathVariable Long id,
+                             @RequestParam(required = false) String status,
+                             HttpServletRequest request) {
+        User user = currentUser(request);
+        Task task = taskRepository.findByIdAndUserId(id, user.getId())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+        String normalizedStatus = normalizeStatus(status);
+        if (normalizedStatus != null) {
+            task.setStatus(normalizedStatus);
+        }
+        return "redirect:/tasks";
+    }
+
+    @PostMapping("/tasks/bulk-status")
+    public String bulkUpdateStatus(@RequestParam(required = false) List<Long> ids,
+                                   @RequestParam(required = false) String status,
+                                   HttpServletRequest request) {
+        User user = currentUser(request);
+        String normalizedStatus = normalizeStatus(status);
+        if (normalizedStatus != null && ids != null) {
+            for (Long id : ids) {
+                taskRepository.findByIdAndUserId(id, user.getId())
+                        .ifPresent(task -> task.setStatus(normalizedStatus));
+            }
         }
         return "redirect:/tasks";
     }
@@ -111,6 +158,7 @@ public class TaskController {
     private String renderError(User user, Model model, String error, String title,
                                String description, String dueDate, String priority) {
         model.addAttribute("email", user.getEmail());
+        model.addAttribute("tab", "active");
         model.addAttribute("error", error);
         model.addAttribute("title", title);
         model.addAttribute("description", description);
@@ -121,7 +169,17 @@ public class TaskController {
     }
 
     private void addTasks(User user, Model model) {
+        addTasks(user, model, false);
+    }
+
+    private void addTasks(User user, Model model, boolean completeTab) {
         List<Task> allTasks = taskRepository.findByUserId(user.getId());
+        allTasks.sort(Comparator.comparing(Task::getDueDate,
+                Comparator.nullsLast(Comparator.naturalOrder())));
+
+        long activeCount = allTasks.stream().filter(task -> !task.isCompleted()).count();
+        long completeCount = allTasks.stream().filter(Task::isCompleted).count();
+
         List<Task> topLevel = new ArrayList<>();
         for (Task task : allTasks) {
             if (task.isSubtask()) {
@@ -133,7 +191,14 @@ public class TaskController {
                 topLevel.add(task);
             }
         }
-        model.addAttribute("tasks", topLevel);
+
+        List<Task> visible = topLevel.stream()
+                .filter(task -> completeTab == task.isCompleted())
+                .collect(Collectors.toList());
+
+        model.addAttribute("tasks", visible);
+        model.addAttribute("activeCount", activeCount);
+        model.addAttribute("completeCount", completeCount);
         model.addAttribute("statuses", Task.statuses());
     }
 
@@ -142,14 +207,14 @@ public class TaskController {
             return null;
         }
         String trimmed = status.trim();
-        if (Task.STATUS_PENDING.equalsIgnoreCase(trimmed)) {
-            return Task.STATUS_PENDING;
+        if (Task.STATUS_TODO.equalsIgnoreCase(trimmed)) {
+            return Task.STATUS_TODO;
         }
-        if (Task.STATUS_IN_PROGRESS.equalsIgnoreCase(trimmed)) {
-            return Task.STATUS_IN_PROGRESS;
+        if (Task.STATUS_PROCESSING.equalsIgnoreCase(trimmed)) {
+            return Task.STATUS_PROCESSING;
         }
-        if (Task.STATUS_DONE.equalsIgnoreCase(trimmed)) {
-            return Task.STATUS_DONE;
+        if (Task.STATUS_COMPLETE.equalsIgnoreCase(trimmed)) {
+            return Task.STATUS_COMPLETE;
         }
         return null;
     }

@@ -11,9 +11,9 @@ public class Task {
     public static final String PRIORITY_LOW = "Low";
     public static final String DEFAULT_PRIORITY = PRIORITY_MEDIUM;
 
-    public static final String STATUS_PENDING = "Pending";
-    public static final String STATUS_IN_PROGRESS = "In Progress";
-    public static final String STATUS_DONE = "Done";
+    public static final String STATUS_TODO = "Todo";
+    public static final String STATUS_PROCESSING = "Processing";
+    public static final String STATUS_COMPLETE = "Complete";
 
     private final Long id;
     private final Long userId;
@@ -34,7 +34,7 @@ public class Task {
         this.description = description;
         this.dueDate = dueDate;
         this.priority = priority;
-        this.status = STATUS_PENDING;
+        this.status = STATUS_TODO;
     }
 
     public Long getId() {
@@ -66,7 +66,7 @@ public class Task {
     }
 
     public boolean isCompleted() {
-        return STATUS_DONE.equals(status);
+        return STATUS_COMPLETE.equals(status);
     }
 
     public String getStatus() {
@@ -74,14 +74,14 @@ public class Task {
     }
 
     public boolean canTransitionTo(String target) {
-        if (STATUS_PENDING.equals(status)) {
-            return STATUS_IN_PROGRESS.equals(target);
+        if (STATUS_TODO.equals(status)) {
+            return STATUS_PROCESSING.equals(target);
         }
-        if (STATUS_IN_PROGRESS.equals(status)) {
-            return STATUS_DONE.equals(target);
+        if (STATUS_PROCESSING.equals(status)) {
+            return STATUS_COMPLETE.equals(target);
         }
-        if (STATUS_DONE.equals(status)) {
-            return STATUS_IN_PROGRESS.equals(target);
+        if (STATUS_COMPLETE.equals(status)) {
+            return STATUS_PROCESSING.equals(target);
         }
         return false;
     }
@@ -91,7 +91,7 @@ public class Task {
     }
 
     public static List<String> statuses() {
-        return List.of(STATUS_PENDING, STATUS_IN_PROGRESS, STATUS_DONE);
+        return List.of(STATUS_TODO, STATUS_PROCESSING, STATUS_COMPLETE);
     }
 
     public List<Task> getSubtasks() {
