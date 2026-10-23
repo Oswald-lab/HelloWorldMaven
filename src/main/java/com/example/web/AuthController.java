@@ -10,15 +10,18 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 
 import com.example.user.AuthService;
+import com.example.user.OtpService;
 import com.example.user.User;
 
 @Controller
 public class AuthController {
 
     private final AuthService authService;
+    private final OtpService otpService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, OtpService otpService) {
         this.authService = authService;
+        this.otpService = otpService;
     }
 
     @GetMapping("/")
@@ -53,18 +56,40 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public String login(@RequestParam String email,
-                        @RequestParam String password,
-                        HttpServletRequest request,
-                        Model model) {
+    public String requestCode(@RequestParam String email, Model model) {
         try {
-            User user = authService.authenticate(email, password);
-            startSession(request, user);
-            return "redirect:/tasks";
+            otpService.requestCode(email);
+            model.addAttribute("email", email);
+            model.addAttribute("ttlMinutes", otpService.getTtl().toMinutes());
+            return "verify-login";
         } catch (IllegalArgumentException ex) {
             model.addAttribute("error", ex.getMessage());
             model.addAttribute("email", email);
             return "login";
+        }
+    }
+
+    @GetMapping("/login/verify")
+    public String verifyPage(@RequestParam String email, Model model) {
+        model.addAttribute("email", email);
+        model.addAttribute("ttlMinutes", otpService.getTtl().toMinutes());
+        return "verify-login";
+    }
+
+    @PostMapping("/login/verify")
+    public String login(@RequestParam String email,
+                        @RequestParam String code,
+                        HttpServletRequest request,
+                        Model model) {
+        model.addAttribute("email", email);
+        model.addAttribute("ttlMinutes", otpService.getTtl().toMinutes());
+        try {
+            User user = otpService.verify(email, code);
+            startSession(request, user);
+            return "redirect:/tasks";
+        } catch (IllegalArgumentException ex) {
+            model.addAttribute("error", ex.getMessage());
+            return "verify-login";
         }
     }
 

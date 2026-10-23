@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Verify sign-in</title>
+</head>
+<body>
+<h1>Check your email</h1>
+<p th:if="${error}" th:text="${error}" style="color: #b00020;"></p>
+<p>We sent a 6-digit code to <strong th:text="${email}">you@example.com</strong>.
+    It expires in <span th:text="${ttlMinutes}">10</span> minutes, and you have 3 attempts.</p>
+<form method="post" action="/login/verify">
+    <input type="hidden" name="email" th:value="${email}">
+    <label for="code">Sign-in code</label>
+    <input id="code" type="text" name="code" inputmode="numeric" pattern="[0-9]{6}" maxlength="6"
+           required autocomplete="one-time-code">
+    <button type="submit">Sign in</button>
+</form>
+<form method="post" action="/login">
+    <input type="hidden" name="email" th:value="${email}">
+    <button type="submit">Send a new code</button>
+</form>
+<p><a href="/login">Use a different email</a></p>
+</body>
+</html>
