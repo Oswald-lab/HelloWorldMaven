@@ -85,12 +85,17 @@ public class TaskController {
         return "redirect:/tasks";
     }
 
-    @PostMapping("/tasks/{id}/toggle")
-    public String toggle(@PathVariable Long id, HttpServletRequest request) {
+    @PostMapping("/tasks/{id}/status")
+    public String updateStatus(@PathVariable Long id,
+                               @RequestParam(required = false) String status,
+                               HttpServletRequest request) {
         User user = currentUser(request);
         Task task = taskRepository.findByIdAndUserId(id, user.getId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
-        task.toggle();
+        String normalizedStatus = normalizeStatus(status);
+        if (normalizedStatus != null && task.canTransitionTo(normalizedStatus)) {
+            task.setStatus(normalizedStatus);
+        }
         return "redirect:/tasks";
     }
 
@@ -129,6 +134,24 @@ public class TaskController {
             }
         }
         model.addAttribute("tasks", topLevel);
+        model.addAttribute("statuses", Task.statuses());
+    }
+
+    private String normalizeStatus(String status) {
+        if (status == null) {
+            return null;
+        }
+        String trimmed = status.trim();
+        if (Task.STATUS_PENDING.equalsIgnoreCase(trimmed)) {
+            return Task.STATUS_PENDING;
+        }
+        if (Task.STATUS_IN_PROGRESS.equalsIgnoreCase(trimmed)) {
+            return Task.STATUS_IN_PROGRESS;
+        }
+        if (Task.STATUS_DONE.equalsIgnoreCase(trimmed)) {
+            return Task.STATUS_DONE;
+        }
+        return null;
     }
 
     private String normalizePriority(String priority) {

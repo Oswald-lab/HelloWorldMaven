@@ -3,6 +3,32 @@
 <head>
     <meta charset="UTF-8">
     <title>My tasks</title>
+    <style>
+        .task-list {
+            max-height: 70vh;
+            overflow-y: auto;
+            padding-left: 1.25rem;
+        }
+        .task-list li.completed .task-title {
+            text-decoration: line-through;
+            color: #6b7280;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 0.05rem 0.45rem;
+            border-radius: 0.75rem;
+            background: #e5e7eb;
+            font-size: 0.85em;
+        }
+        .task-list li.completed .status-badge {
+            background: #bbf7d0;
+            color: #166534;
+        }
+        .done-indicator {
+            color: #166534;
+            font-weight: bold;
+        }
+    </style>
 </head>
 <body>
 <h1>My tasks</h1>
@@ -48,16 +74,20 @@
     </p>
 </form>
 
-<ul>
-    <li th:each="task : ${tasks}">
-        <form method="post" th:action="@{/tasks/{id}/toggle(id=${task.id})}" style="display: inline;">
-            <button type="submit">
-                <span th:text="${task.completed} ? 'Undo' : 'Complete'"></span>
-            </button>
+<ul class="task-list">
+    <li th:each="task : ${tasks}" th:classappend="${task.completed} ? 'completed' : ''">
+        <form method="post" th:action="@{/tasks/{id}/status(id=${task.id})}" style="display: inline;">
+            <select name="status" onchange="this.form.submit()">
+                <option th:each="status : ${statuses}"
+                        th:value="${status}"
+                        th:text="${status}"
+                        th:selected="${status == task.status}"
+                        th:disabled="${status != task.status and !task.canTransitionTo(status)}"></option>
+            </select>
         </form>
-        <span th:text="${task.title}"
-              th:style="${task.completed} ? 'text-decoration: line-through;' : ''"></span>
-        <span th:text="'[' + ${task.status} + ']'"></span>
+        <span class="task-title" th:text="${task.title}"></span>
+        <span class="status-badge" th:text="${task.status}"></span>
+        <span th:if="${task.completed}" class="done-indicator">&#10003; Done</span>
         <span th:text="'Priority: ' + ${task.priority}"></span>
         <span th:text="'Due: ' + ${task.dueDate}"></span>
         <span th:if="${task.description != null}" th:text="'— ' + ${task.description}"></span>
@@ -65,15 +95,19 @@
             <button type="submit">Delete</button>
         </form>
         <ul th:if="${!#lists.isEmpty(task.subtasks)}">
-            <li th:each="subtask : ${task.subtasks}">
-                <form method="post" th:action="@{/tasks/{id}/toggle(id=${subtask.id})}" style="display: inline;">
-                    <button type="submit">
-                        <span th:text="${subtask.completed} ? 'Undo' : 'Complete'"></span>
-                    </button>
+            <li th:each="subtask : ${task.subtasks}" th:classappend="${subtask.completed} ? 'completed' : ''">
+                <form method="post" th:action="@{/tasks/{id}/status(id=${subtask.id})}" style="display: inline;">
+                    <select name="status" onchange="this.form.submit()">
+                        <option th:each="status : ${statuses}"
+                                th:value="${status}"
+                                th:text="${status}"
+                                th:selected="${status == subtask.status}"
+                                th:disabled="${status != subtask.status and !subtask.canTransitionTo(status)}"></option>
+                    </select>
                 </form>
-                <span th:text="${subtask.title}"
-                      th:style="${subtask.completed} ? 'text-decoration: line-through;' : ''"></span>
-                <span th:text="'[' + ${subtask.status} + ']'"></span>
+                <span class="task-title" th:text="${subtask.title}"></span>
+                <span class="status-badge" th:text="${subtask.status}"></span>
+                <span th:if="${subtask.completed}" class="done-indicator">&#10003; Done</span>
                 <form method="post" th:action="@{/tasks/{id}/delete(id=${subtask.id})}" style="display: inline;">
                     <button type="submit">Delete</button>
                 </form>

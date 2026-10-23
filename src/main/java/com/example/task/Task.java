@@ -11,6 +11,10 @@ public class Task {
     public static final String PRIORITY_LOW = "Low";
     public static final String DEFAULT_PRIORITY = PRIORITY_MEDIUM;
 
+    public static final String STATUS_PENDING = "Pending";
+    public static final String STATUS_IN_PROGRESS = "In Progress";
+    public static final String STATUS_DONE = "Done";
+
     private final Long id;
     private final Long userId;
     private final Long parentId;
@@ -18,7 +22,7 @@ public class Task {
     private final String description;
     private final LocalDate dueDate;
     private final String priority;
-    private boolean completed;
+    private String status;
     private final List<Task> subtasks = new ArrayList<>();
 
     public Task(Long id, Long userId, Long parentId, String title, String description,
@@ -30,7 +34,7 @@ public class Task {
         this.description = description;
         this.dueDate = dueDate;
         this.priority = priority;
-        this.completed = false;
+        this.status = STATUS_PENDING;
     }
 
     public Long getId() {
@@ -62,11 +66,32 @@ public class Task {
     }
 
     public boolean isCompleted() {
-        return completed;
+        return STATUS_DONE.equals(status);
     }
 
     public String getStatus() {
-        return completed ? "Completed" : "Pending";
+        return status;
+    }
+
+    public boolean canTransitionTo(String target) {
+        if (STATUS_PENDING.equals(status)) {
+            return STATUS_IN_PROGRESS.equals(target);
+        }
+        if (STATUS_IN_PROGRESS.equals(status)) {
+            return STATUS_DONE.equals(target);
+        }
+        if (STATUS_DONE.equals(status)) {
+            return STATUS_IN_PROGRESS.equals(target);
+        }
+        return false;
+    }
+
+    public void setStatus(String newStatus) {
+        this.status = newStatus;
+    }
+
+    public static List<String> statuses() {
+        return List.of(STATUS_PENDING, STATUS_IN_PROGRESS, STATUS_DONE);
     }
 
     public List<Task> getSubtasks() {
@@ -79,9 +104,5 @@ public class Task {
 
     public boolean isSubtask() {
         return parentId != null;
-    }
-
-    public void toggle() {
-        this.completed = !this.completed;
     }
 }
