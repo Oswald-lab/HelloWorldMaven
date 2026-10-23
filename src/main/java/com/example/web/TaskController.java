@@ -1,5 +1,10 @@
 package com.example.web;
 
+import java.time.LocalDate;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.List;
+
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
 
@@ -32,17 +37,51 @@ public class TaskController {
     public String list(HttpServletRequest request, Model model) {
         User user = currentUser(request);
         model.addAttribute("email", user.getEmail());
-        model.addAttribute("tasks", taskRepository.findByUserId(user.getId()));
+        addTasks(user, model);
         return "tasks";
     }
 
     @PostMapping("/tasks")
-    public String create(@RequestParam String title, HttpServletRequest request) {
+    public String create(@RequestParam(required = false) String title,
+                         @RequestParam(required = false) String description,
+                         @RequestParam(required = false) String dueDate,
+                         @RequestParam(required = false) String priority,
+                         @RequestParam(required = false) List<String> subtasks,
+                         HttpServletRequest request,
+                         Model model) {
         User user = currentUser(request);
-        String trimmed = title == null ? "" : title.trim();
-        if (!trimmed.isEmpty()) {
-            taskRepository.save(user.getId(), trimmed);
+        String trimmedTitle = title == null ? "" : title.trim();
+
+        if (trimmedTitle.isEmpty()) {
+            return renderError(user, model, "Title is required.", title, description, dueDate, priority);
         }
+
+        LocalDate parsedDueDate;
+        try {
+            if (dueDate == null || dueDate.trim().isEmpty()) {
+                throw new DateTimeParseException("missing", "", 0);
+            }
+            parsedDueDate = LocalDate.parse(dueDate.trim());
+        } catch (DateTimeParseException ex) {
+            return renderError(user, model, "Due date is required.", title, description, dueDate, priority);
+        }
+
+        String normalizedPriority = normalizePriority(priority);
+        String trimmedDescription = description == null || description.trim().isEmpty()
+                ? null : description.trim();
+
+        Task task = taskRepository.save(user.getId(), null, trimmedTitle, trimmedDescription,
+                parsedDueDate, normalizedPriority);
+
+        if (subtasks != null) {
+            for (String subtaskTitle : subtasks) {
+                if (subtaskTitle != null && !subtaskTitle.trim().isEmpty()) {
+                    taskRepository.save(user.getId(), task.getId(), subtaskTitle.trim(), null,
+                            parsedDueDate, normalizedPriority);
+                }
+            }
+        }
+
         return "redirect:/tasks";
     }
 
@@ -62,6 +101,48 @@ public class TaskController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
         taskRepository.delete(task);
         return "redirect:/tasks";
+    }
+
+    private String renderError(User user, Model model, String error, String title,
+                               String description, String dueDate, String priority) {
+        model.addAttribute("email", user.getEmail());
+        model.addAttribute("error", error);
+        model.addAttribute("title", title);
+        model.addAttribute("description", description);
+        model.addAttribute("dueDate", dueDate);
+        model.addAttribute("priority", priority);
+        addTasks(user, model);
+        return "tasks";
+    }
+
+    private void addTasks(User user, Model model) {
+        List<Task> allTasks = taskRepository.findByUserId(user.getId());
+        List<Task> topLevel = new ArrayList<>();
+        for (Task task : allTasks) {
+            if (task.isSubtask()) {
+                allTasks.stream()
+                        .filter(parent -> parent.getId().equals(task.getParentId()))
+                        .findFirst()
+                        .ifPresent(parent -> parent.addSubtask(task));
+            } else {
+                topLevel.add(task);
+            }
+        }
+        model.addAttribute("tasks", topLevel);
+    }
+
+    private String normalizePriority(String priority) {
+        if (priority == null) {
+            return Task.DEFAULT_PRIORITY;
+        }
+        String trimmed = priority.trim();
+        if (Task.PRIORITY_HIGH.equalsIgnoreCase(trimmed)) {
+            return Task.PRIORITY_HIGH;
+        }
+        if (Task.PRIORITY_LOW.equalsIgnoreCase(trimmed)) {
+            return Task.PRIORITY_LOW;
+        }
+        return Task.DEFAULT_PRIORITY;
     }
 
     private User currentUser(HttpServletRequest request) {

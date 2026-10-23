@@ -12,11 +12,42 @@
         <button type="submit">Sign out</button>
     </form>
 </p>
+
+<p th:if="${error}" th:text="${error}" style="color: red;"></p>
+
 <form method="post" action="/tasks">
-    <label for="title">New task</label>
-    <input id="title" type="text" name="title" required maxlength="200">
-    <button type="submit">Add</button>
+    <p>
+        <label for="title">Title</label>
+        <input id="title" type="text" name="title" required maxlength="200" th:value="${title}">
+    </p>
+    <p>
+        <label for="description">Description (optional)</label>
+        <textarea id="description" name="description" rows="2" th:text="${description}"></textarea>
+    </p>
+    <p>
+        <label for="dueDate">Due date</label>
+        <input id="dueDate" type="date" name="dueDate" required th:value="${dueDate}">
+    </p>
+    <p>
+        <label for="priority">Priority</label>
+        <select id="priority" name="priority">
+            <option value="High" th:selected="${priority == 'High'}">High</option>
+            <option value="Medium" th:selected="${priority == null or priority == '' or priority == 'Medium'}">Medium</option>
+            <option value="Low" th:selected="${priority == 'Low'}">Low</option>
+        </select>
+    </p>
+    <fieldset>
+        <legend>Subtasks (optional)</legend>
+        <div id="subtasks">
+            <p><input type="text" name="subtasks" maxlength="200" placeholder="Subtask title"></p>
+        </div>
+        <button type="button" onclick="addSubtask()">Add another subtask</button>
+    </fieldset>
+    <p>
+        <button type="submit">Add task</button>
+    </p>
 </form>
+
 <ul>
     <li th:each="task : ${tasks}">
         <form method="post" th:action="@{/tasks/{id}/toggle(id=${task.id})}" style="display: inline;">
@@ -26,11 +57,44 @@
         </form>
         <span th:text="${task.title}"
               th:style="${task.completed} ? 'text-decoration: line-through;' : ''"></span>
+        <span th:text="'[' + ${task.status} + ']'"></span>
+        <span th:text="'Priority: ' + ${task.priority}"></span>
+        <span th:text="'Due: ' + ${task.dueDate}"></span>
+        <span th:if="${task.description != null}" th:text="'— ' + ${task.description}"></span>
         <form method="post" th:action="@{/tasks/{id}/delete(id=${task.id})}" style="display: inline;">
             <button type="submit">Delete</button>
         </form>
+        <ul th:if="${!#lists.isEmpty(task.subtasks)}">
+            <li th:each="subtask : ${task.subtasks}">
+                <form method="post" th:action="@{/tasks/{id}/toggle(id=${subtask.id})}" style="display: inline;">
+                    <button type="submit">
+                        <span th:text="${subtask.completed} ? 'Undo' : 'Complete'"></span>
+                    </button>
+                </form>
+                <span th:text="${subtask.title}"
+                      th:style="${subtask.completed} ? 'text-decoration: line-through;' : ''"></span>
+                <span th:text="'[' + ${subtask.status} + ']'"></span>
+                <form method="post" th:action="@{/tasks/{id}/delete(id=${subtask.id})}" style="display: inline;">
+                    <button type="submit">Delete</button>
+                </form>
+            </li>
+        </ul>
     </li>
 </ul>
 <p th:if="${#lists.isEmpty(tasks)}">You have no tasks yet.</p>
+
+<script>
+    function addSubtask() {
+        var container = document.getElementById('subtasks');
+        var row = document.createElement('p');
+        var input = document.createElement('input');
+        input.type = 'text';
+        input.name = 'subtasks';
+        input.maxLength = 200;
+        input.placeholder = 'Subtask title';
+        row.appendChild(input);
+        container.appendChild(row);
+    }
+</script>
 </body>
 </html>

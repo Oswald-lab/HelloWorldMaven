@@ -1,5 +1,6 @@
 package com.example.task;
 
+import java.time.LocalDate;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -16,9 +17,10 @@ public class TaskRepository {
     private final AtomicLong ids = new AtomicLong();
     private final Map<Long, Task> tasks = new ConcurrentHashMap<>();
 
-    public Task save(Long userId, String title) {
+    public Task save(Long userId, Long parentId, String title, String description,
+                     LocalDate dueDate, String priority) {
         Long id = ids.incrementAndGet();
-        Task task = new Task(id, userId, title);
+        Task task = new Task(id, userId, parentId, title, description, dueDate, priority);
         tasks.put(id, task);
         return task;
     }
@@ -26,7 +28,7 @@ public class TaskRepository {
     public List<Task> findByUserId(Long userId) {
         return tasks.values().stream()
                 .filter(task -> task.getUserId().equals(userId))
-                .sorted(Comparator.comparing(Task::getId))
+                .sorted(Comparator.comparing(Task::getId).reversed())
                 .collect(Collectors.toList());
     }
 
@@ -40,5 +42,6 @@ public class TaskRepository {
 
     public void delete(Task task) {
         tasks.remove(task.getId());
+        tasks.values().removeIf(candidate -> task.getId().equals(candidate.getParentId()));
     }
 }
